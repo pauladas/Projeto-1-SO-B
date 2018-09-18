@@ -2,7 +2,8 @@
 
 ### Branch
 ~~~
-Responsável por armazenar as tarefas produzidas por:
+Responsável por armazenar as tarefas produzidas por em ordem cronológica:
+Em reunião de grupo, a parte inicialmente definida para esse membro foi a estruturação do código do driver e criação do programa de testes
 Vinícius Trevisan - RA: 16011231
 ~~~
 
