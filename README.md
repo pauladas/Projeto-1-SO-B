@@ -6,13 +6,13 @@ Responsável por armazenar as tarefas produzidas por:
 Vinícius Trevisan - RA: 16011231
 ~~~
 
-## 18/09/2018
+### 18/09/2018
 ~~~
 Leitura do Tutorial de como desenvolver um driver para um dispositivo de caractere;
 Inicio da estruturação do código responsável pelo driver (init, exit, open, read, write, close);
 ~~~
 
-## Tarefas a Realizar: Driver
+### Tarefas a Realizar: Driver
 ~~~
 [Fazer] Receber argumento de entrada (chave);
 [Fazer] Definição da constante com o tamanho máximo para o bloco (chave e bloco de criptografia)
@@ -21,7 +21,7 @@ Inicio da estruturação do código responsável pelo driver (init, exit, open, 
 [Fazer] Switch case com as opções de criptografia (c) descriptografia (d) e hash (h);
 ~~~
 
-## Tarefas a Realizar: Teste
+### Tarefas a Realizar: Teste
 ~~~
 [Fazer] Testar função de conversão string hexa em sequência de bits
 [Fazer] Testar função de conversão sequência de bits para string hexa
