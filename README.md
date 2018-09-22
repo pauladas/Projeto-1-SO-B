@@ -13,13 +13,17 @@ Leitura do Tutorial de como desenvolver um driver para um dispositivo de caracte
 Inicio da estruturação do código responsável pelo driver (init, exit, open, close);
 ~~~
 
+### 22/09/2018
+~~~
+Recebimento do argumento de entrada (chave)
+Definição da constante com o tamanho máximo para o bloco (chave e bloco de criptografia)
+[Problemas] Função para conversao da string hexadecimal para sequencia de bits (ler a chave e ler o conteudo a ser criptografado);
+[Problemas] Função para conversão de sequencia de bits para string hexadecimal (gravar o resultado no arquivo); 
+~~~
+
 ### Tarefas a Realizar: Driver
 ~~~
 [Fazer] Funções read e write;
-[Fazer] Receber argumento de entrada (chave);
-[Fazer] Definição da constante com o tamanho máximo para o bloco (chave e bloco de criptografia)
-[Fazer] Função para conversao da string hexadecimal para sequencia de bits (ler a chave e ler o conteudo a ser criptografado);
-[Fazer] Função para conversão de sequencia de bits para string hexadecimal (gravar o resultado no arquivo); 
 [Fazer] Switch case com as opções de criptografia (c) descriptografia (d) e hash (h);
 ~~~
 
