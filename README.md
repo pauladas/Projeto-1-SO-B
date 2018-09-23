@@ -11,7 +11,6 @@ Essa sequência busca identificar um arquivo ou informação unicamente. Por exe
 Uma função de hash recebe um valor de um determinado tipo e retorna um código para ele. Enquanto o ideal seria gerar identificadores únicos para os valores de entrada, isso normalmente não é possível: na maioria dos casos, o contradomínio de nossa função é muito menor do que o seu domínio, ou seja, {\displaystyle x} x (o tipo de entrada) pode assumir uma gama muito maior de valores do que {\displaystyle \operatorname {hash} (x)} \operatorname{hash}(x) (o resultado da função de hash).
 
 ### Algoritmos mais usados
-```
+
 * MD5
 * SHA-1
-```
