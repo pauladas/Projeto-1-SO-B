@@ -12,39 +12,43 @@
 #include <linux/kernel.h>                                        /* Contem as funcoes macros e tipos de estruturas do kernel */
 #include <linux/moduleparam.h>                                   /* Contem a funcao para receber parametros durante a inicializacao do modulo */
 #include <linux/stat.h>
+#include <linux/string.h>                                        /* Biblioteca para manipular strings em nivel de kernel */
 #include <linux/fs.h>                                            /* Biblioteca para gerenciamento de sistema de arquivos (abrir,fechar, ler e escrever em arquivo) */
 #include <linux/uaccess.h>                                       /* Necessario para copiar os dados para o espaco de usuario*/
 #define  DEVICE_NAME "crypto"                                    /* Nome do dispositivo que aparecera em /proc/devices (sera o nome do arquivo criado com mknode /dev/crypto c MAJOR 0) */
-#define  CLASS_NAME  "cryptomodule"                              /* TDefinicao da classe do dispositivo */
-#define  KEY_SIZE 128
+#define  CLASS_NAME  "cryptomodule"                              /* Definicao da classe do dispositivo */
+#define  KEY_SIZE 256
 
 MODULE_LICENSE("GPL");                                                     /* Tipo da licenca */
 MODULE_AUTHOR("Projeto 1");                                                /* Autor */
 MODULE_DESCRIPTION("Custom crypto driver - Encrypt, Decrypt, Hash");       /* Descricao do modulo */
 MODULE_VERSION("1.0");                                                     /* Varsao */
 
-/* OBS: os prints estarao em /var/log/kernel.log
+/* OBS: os prints estarao em /var/log/kernel.log ou dmesg
  * para imprimir tail kern.log
 */
 
 /* Todas as variaveis globais devem ser ESTATICAS para evitar conflitos com as demais existentes na memoria do Kernel */
-static int        majorNumber;                        /* Armazena o numero major definido automaticamente pelo driver */
-static char       operacao;                           /* Indica a operacao a ser realizada c - d - h */
-static char       *key;                               /* Armazena a chave em caracteres passada como parametro na insercao do modulo */
-static char       mensagem[KEY_SIZE/4];               /* Armazena o valor lido do arquivo do modulo */
-static long       keyHexa;                            /* Armazena a chave hexadecimal convertida a partir da chave em caracteres  *******************************************/
-static short      size_of_message;                    ///< Used to remember the size of the string stored                                   ************************
-static int        numberOpens = 0;                    /* Contador do numero de vezes que o arquivo de dispositivo foi aberto */
-static struct     device* cryptomoduleDevice = NULL;  /* Ponteiro para a struct do driver de dispositivo */
-static struct     class*  cryptomoduleClass  = NULL;  /* Ponteiro para a struct da classe representando o driver de dispositivo */
+static int        majorNumber;                          /* Armazena o numero major definido automaticamente pelo driver */
+static char       operacao;                             /* Indica a operacao a ser realizada c - d - h */
+static char       *key;                                 /* Armazena a chave em CARACTERES passada como parametro na insercao do modulo -- Durante a conversao, o limite definido foi de 64 caracteres hexa de entrada ou seja, 32 bytes*/
+static char       keyHexa[KEY_SIZE/8];                  /* Armazena a chave HEXADECIMAL convertida a partir da chave em CARACTERES */
+static char       keyChar[KEY_SIZE/4 + 1];              /* Representacao em caracteres da chave considerada em hexadecimal */
+static char       mensagemHexaInput[(KEY_SIZE/8)*5];    /* Armazena a mensagem lida do arquivo do modulo em forma hexadecimal para ser utilizado na criptografia, descriptografia ou hash obs: vezes 5 pois definimos que iremos realizar as operacoes com no maximo 5 blocos (160 bytes)*/
+static char       mensagemHexaOutput[(KEY_SIZE/8)*5];   /* Armazena o resultado da criptogragia, descriptografia ou hash em hexadecimal */
+static char       *mensagemCharInput;                   /* Armazena a mensagem em CARACTERES lida do arquivo do modulo. Obs: o tamanho eh "ilimitado", mas iremos considerar os primeiros 64*5(blocos) caracteres*/
+static char       mensagemCharOutput[(KEY_SIZE/4)*5+1]; /* Armazena o resultado da criptogragia, descriptografia ou hash em CARACTERES, para imprimir no arquivo do modulo */
+static int        numberOpens = 0;                      /* Contador do numero de vezes que o arquivo de dispositivo foi aberto */
+static struct     device* cryptomoduleDevice = NULL;    /* Ponteiro para a struct do driver de dispositivo */
+static struct     class*  cryptomoduleClass  = NULL;    /* Ponteiro para a struct da classe representando o driver de dispositivo */
 
 /* Prototipos das funcoes */
 static int     dev_abrir(struct inode *, struct file *);
 static int     dev_fechar(struct inode *, struct file *);
 static ssize_t dev_leitura(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_escrita(struct file *, const char *, size_t, loff_t *);
-static void converterChaveHexa(char chave[]);
-static void converterChaveChar(long long int chave);
+static void   converterChar2Hexa(char *pHexa);
+static void   converterHexa2Char(char *pHexa);
 
 /* Obtendo os parametros passados na inicializacao */
 /* para carregar o modulo: insmod cryptomodule.ko key="ABCDEF12345667890" */
@@ -103,13 +107,9 @@ static int __init cryptomodule_init(void)
    pr_info("cryptoModule: Dispositivo criado com sucesso\n");
 
    pr_info("Chave (Key) BRUTA recebida: %s\n", key);
-   converterChaveHexa(key);
-   pr_info("Chave (Key) CONVERTIDA em hexadecimal recebida: %x\n", keyHexa);
-   // TESTE
-   converterChaveChar(keyHexa);
-   operacao = 'c';
-   size_of_message=1;
-   pr_info("Chave (Key) CONVERTIDA em caracteres recebida: %s\n", mensagem);
+   converterChar2Hexa(key);       /* Salva em keyHexa a sequencia de bytes que representa os caracteres em hexadecimal lidos no carregamento do modulo */
+   converterHexa2Char(keyChar);  /* Salva em keyChar os caracteres que representam a chave em hexadecimal */
+   pr_info("Chave (Key) CONSIDERADA em hexadecimal: %s\n", keyChar);
 
    return 0; /* Retorno igual a 0 (sucesso) */
 }
@@ -192,16 +192,84 @@ static int dev_fechar(struct inode *inodep, struct file *filep)
    return 0;
 }
 
-/* Funcao para converter uma chave em caracteres para um valor long int em hexadecimal */
-static void converterChaveHexa(char chave[])
+/* Funcao para converter um array de caracteres para um array em hexadecimal */
+static void converterChar2Hexa(char *pChar)
 {
-  kstrtol(chave, 16, &keyHexa); /* Converte o array de caracteres em uma sequencia de bytes */
+   /* Ideia: caso o numero for entre 0 e 9 subtrair 48, caso for de A a F subtrair 65. Logo, realizar um OR & com o byte, shift para a direita 4x e adicionar o segundo numero */
+  memset(keyHexa,0,KEY_SIZE/8); /* Zerando o conteudo da memoria do array keyHexa -> Garante que nao existira lixo na memoria */
+  int lengthChave = ((strlen(pChar)>=KEY_SIZE/4) ? (lengthChave = KEY_SIZE/4):(lengthChave = strlen(pChar))); /* Variavel para armazenar a qtd de caracteres na chave. Caso tenha mais de 64 soh os 64 primeiros sao considerados */
+  int j=32 - ((lengthChave%2 == 0 )?(lengthChave/2):((lengthChave/2) + 1)); /* indice para acessar o vetor keyHexa a partir da posicao inicial correta*/
+  int i=0;                          /* indice para acessar a chave de caractere lida na insercao do modulo */
+  /* A fim de normalizar o numero, caso a quantidade de caracteres for impar, o primeiro caractere da chave devera ocupar o primeiro byte de keyHexa sozinho */
+  if(lengthChave%2 != 0)                        /* ou seja, o numero de caracteres eh impar */
+  {
+    if(pChar[i] >= 48 && pChar[i] <= 57)          /* o caractere da chave eh entre 0(ASCII 48) e 9(ASCII 57) */
+    {
+      keyHexa[j] = keyHexa[j] | (pChar[i]-48);    /* Subtrai 48 para obter o valor do caractere em seu numero correspondente e manipula os bits com OR*/
+    }
+    else if(pChar[i] >= 97 && pChar[i] <= 102)    /* o caractere da chave eh entre a(ASCII 97) e f(ASCII 102) */
+    {
+      keyHexa[j] = keyHexa[j] | (pChar[i]-87);    /* Subtrai 87 para obter o valor do caractere em seu numero correspondente (entre 10 e 15) e manipula os bits com OR*/
+    }
+    else                                          /* o caractere da chave eh entre A(ASCII 65) e F(ASCII 70) */
+    {
+      keyHexa[j] = keyHexa[j] | (pChar[i]-55);    /* Subtrai 55 para obter o valor do caractere em seu numero correspondente (entre 10 e 15) e manipula os bits com OR*/
+    }
+
+    /* Como a quantidade de caracteres eh impar e o primeiro caractere foi salvo em um bit isolado, devemos incrementar os contadores */
+    i++; /* incrementa o contador de caracteres da chave */
+    j++; /* incrementa uma posicao de keyHexa, ja que o promeiro caractere tem q estar sozinho no byte */
+  }
+
+  /* Continuando a conversao do numero caso a quantidade de caracteres for impar ou iniciando a conversao caso a quantidade de caracteres for par */
+  for(i; i<lengthChave && i<KEY_SIZE/4; i++)          /* o indice i vai de 0 a 63 no maximo, ou seja, caso a chave for maior que 64 caracteres, soh pega os 64 primeiros */
+  {
+    if(pChar[i] >= 48 && pChar[i] <= 57)        /* o caractere da chave eh entre 0(ASCII 48) e 9(ASCII 57) */
+    {
+      keyHexa[j] = keyHexa[j] | (pChar[i]-48);  /* Subtrai 48 para obter o valor do caractere em seu numero correspondente e manipula os bits com OR*/
+    }
+    else if(pChar[i] >= 97 && pChar[i] <= 102)  /* o caractere da chave eh entre a(ASCII 97) e f(ASCII 102) */
+    {
+      keyHexa[j] = keyHexa[j] | (pChar[i]-87);  /* Subtrai 87 para obter o valor do caractere em seu numero correspondente (entre 10 e 15) e manipula os bits com OR*/
+    }
+    else                                        /* o caractere da chave eh entre A(ASCII 65) e F(ASCII 70) */
+    {
+      keyHexa[j] = keyHexa[j] | (pChar[i]-55);  /* Subtrai 55 para obter o valor do caractere em seu numero correspondente (entre 10 e 15) e manipula os bits com OR*/
+    }
+    /* Definindo quando ocorre o shift no byte para armazenar o segundo numero no mesmo byte */
+    if(lengthChave%2 != 0)                    /* Caso a quantidade de caracteres for IMPAR */
+    {
+      if(i%2 != 0)                              /* O shift de 4 posicoes ocorrera quando o indice i, ou seja, o apontador para a chave em caracteres for IMPAR */
+      {
+        keyHexa[j] = keyHexa[j] << 4;
+      }
+      else                                      /* Caso o contador da posicao do vetor de caracteres nao for impar, ou seja, ja cadastramos o segundo digito ...*/
+      {
+         j++;                                   /*... pula para o proximo byte de keyHexa */
+      }
+    }
+    else                                        /* Caso a quantidade de caracteres for PAR */
+    {
+      if(i%2 == 0)                              /* O shift de 4 posicoes para a direita ocorrera quando o indice i for PAR */
+      {
+        keyHexa[j] = keyHexa[j] << 4;
+      }
+      else                                      /* Caso o contador de posicao do vetor de caracteres NAO FOR PAR, ou seja, ja cadastramos o segundo digito ... */
+      {
+        j++;                                   /*... pula para o proximo byte de keyHexa */
+      }
+    }
+  }
 }
 
-/* Funcao para converter um valor inteiro hexadecima; para uma string de caracteres */
-static void converterChaveChar(long long int chave)
+/* Funcao para converter um array de hexadecimais para uma string de caracteres */
+static void converterHexa2Char(char *pHexa)
 {
-  snprintf(mensagem,"%x",chave);
+  memset(keyChar,0,KEY_SIZE/4); /* Zerando o conteudo da memoria do array keyHexa -> Garante que nao existira lixo na memoria */
+  int i;
+  for(i=0;i<KEY_SIZE/8;i++)
+    sprintf(&keyChar[i*2],"%02x",(unsigned char)keyHexa[i]);
+  keyChar[KEY_SIZE/4] = '\0';
 }
 
 /* Inicializacao das funcoes de init e exit, ja que ambas foram criadas com macros */
