@@ -5,6 +5,7 @@
  *  Raissa Davinha      - 15032006
  *  Vinícius Trevisan   - 16011231
  */
+//teste
 
 #include <linux/init.h>                                          /* Macros Utilizadas para iniciar (__init) e terminar (__exit) o modulo */
 #include <linux/module.h>                                        /* Biblioteca para carregar o modulo de kernel no sistema */
