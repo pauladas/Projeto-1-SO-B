@@ -15,10 +15,17 @@ Inicio da estruturação do código responsável pelo driver (init, exit, open, 
 
 ### 22/09/2018
 ~~~
-Recebimento do argumento de entrada (chave)
-Definição da constante com o tamanho máximo para o bloco (chave e bloco de criptografia)
+Recebimento do argumento de entrada (chave);
+Definição da constante com o tamanho máximo para o bloco (chave e bloco de criptografia);
 [Problemas] Função para conversao da string hexadecimal para sequencia de bits (ler a chave e ler o conteudo a ser criptografado);
-[Problemas] Função para conversão de sequencia de bits para string hexadecimal (gravar o resultado no arquivo); 
+[Problemas] Função para conversão de sequencia de bits para string hexadecimal (gravar o resultado no arquivo). 
+~~~
+
+### 25/09/2018
+~~~
+Upload do código em espaço do usuário a fim de relizar um protótipo para as converções implementadas no código do kernel;
+Upload do modulo de kernel com a capacidade de receber uma chave com os problemas descritos dia 22/09 arrumados;
+Teste das funções de conversão no módulo, imprimindo os resultados no log do kernel dmesg.
 ~~~
 
 ### Tarefas a Realizar: Driver
@@ -29,7 +36,5 @@ Definição da constante com o tamanho máximo para o bloco (chave e bloco de cr
 
 ### Tarefas a Realizar: Teste
 ~~~
-[Fazer] Testar função de conversão string hexa em sequência de bits;
-[Fazer] Testar função de conversão sequência de bits para string hexa;
 [Fazer] Fazer programa de teste em espaço de usuário e definir uma rotina de testes;
 ~~~
