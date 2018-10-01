@@ -30,7 +30,7 @@ Teste das funções de conversão no módulo, imprimindo os resultados no log do
 
 ### Tarefas a Realizar: Driver
 ~~~
-[Fazer] Funções read e write;
+[Fazer] Funções read e write - Nesse momendo o parametro de entrada sera passado e convertido, sem nenhuma funcao de criptografia ou descriptografia, fazendo com que o modulo consiga ler e gravar em seu respectivo arquivo;
 [Fazer] Switch case com as opções de criptografia (c) descriptografia (d) e hash (h);
 ~~~
 
