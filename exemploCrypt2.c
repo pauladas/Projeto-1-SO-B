@@ -41,7 +41,16 @@ static int __init sha1_init(void)
     * 
     *   valor tfm dentro da struct desc recebe o valor dado anteriormente à struct tfm
     *   valor flag dentro da struct desc é setado para 0
+    *   
+    *   // funçao:void sg_init_one(struct scatterlist *, const void *, unsigned int) (set data buffer?)
+    *   executa funçao sg_init_one passando o endereço da struct sg, a struct buff e o valor 10 como parametros
     * 
+    *   //funçao: int crypto_hash_init(struct hash_desc * desc)
+    *       A chamada (re) inicializa o resumo da mensagem referenciado pelo identificador de solicitação de 
+    *       criptografia de hash. Qualquer estado potencialmente existente criado por operações anteriores é 
+    *       descartado. argumento: pedido de cifra manipula aquele a ser preenchido pelo chamador - desc.tfm é 
+    *       preenchido com o identificador de cifra de hash; desc.flags é preenchido com CRYPTO_TFM_REQ_MAY_SLEEP 
+    *       ou 0.
     * 
     */
     printk(KERN_INFO "sha1: %s\n", __FUNCTION__);
