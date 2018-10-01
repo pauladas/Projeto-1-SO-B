@@ -37,5 +37,6 @@ Limitamos o tamanho da chave de entrada para 5 blocos (cada bloco possui 256 bit
 
 ### Tarefas a Realizar: Teste
 ~~~
+[Testar] Função write
 [Fazer] Fazer programa de teste em espaço de usuário e definir uma rotina de testes;
 ~~~
