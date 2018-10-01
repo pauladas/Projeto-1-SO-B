@@ -26,6 +26,7 @@ Definição da constante com o tamanho máximo para o bloco (chave e bloco de cr
 Upload do código em espaço do usuário a fim de relizar um protótipo para as converções implementadas no código do kernel;
 Upload do modulo de kernel com a capacidade de receber uma chave com os problemas descritos dia 22/09 arrumados;
 Teste das funções de conversão no módulo, imprimindo os resultados no log do kernel dmesg.
+Limitamos o tamanho da chave de entrada para 5 blocos (cada bloco possui 256 bits ou 32 bytes)
 ~~~
 
 ### Tarefas a Realizar: Driver
