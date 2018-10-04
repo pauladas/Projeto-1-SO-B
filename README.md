@@ -38,3 +38,27 @@ Outra aplicação de hashes é o download de arquivos da Internet. Especialmente
 
 Uma função hash deve ser capaz de processar uma mensagem de comprimento arbitrário produzindo uma saída de comprimento fixo. Isso pode ser alcançado, através da quebra da entrada em blocos de tamanhos iguais, e operar sobre elas, em sequência, utilizando funções de compressão unidirecional. A função de compressão pode ser especialmente projetada para calcular o hash ou construída a partir de uma cifra de blocos. A função hash construída com a construção Merkle-Damgård é tão resistente a colisão quanto a sua função de compressão; qualquer colisão para a função hash total pode ser rastreada a uma colisão em uma das funções de compressão.
 O último bloco processado deve ter um "preenchimento" acrescentado a seu comprimento inequivocamente (prática conhecida como padding); isso é crucial para a segurança dessa construção. Essa construção é chamada de Merkle-Damgård.
+
+## O que e scatterlist?
+
+High-performance I/O generally involves the use of direct memory access (DMA) operations. With DMA, the I/O device transfers data directly to and from main memory without the intervention of the CPU. In the simplest form of DMA, the controller is handed a pointer to a region of memory, given the length, and told to do its thing. The processor can then forget about the operation until the device signals that the work is done.
+
+This simple view has a drawback, however, in that it assumes that the data to be transferred is stored contiguously in memory. When the I/O buffer is in kernel space, the kernel can often arrange for it to be physically contiguous - though that gets harder as the size of the buffers gets larger. If the buffer is in user space, it is guaranteed to be scattered around physical memory. So it would be nice if DMA operations could work with buffers which are split into a number of distinct pieces.
+
+In fact, with any reasonably capable peripheral device, buffers can be split this way. The term for operations on such buffers is "scatter/gather I/O"; scatter/gather has been well supported under Linux for some time. The DMA chapter of Linux Device Drivers covers scatter/gather in a fair amount of detail. In short, a driver starts by filling in an array of scatterlist structures, which (on the i386 architecture) look like: 
+
+```
+struct scatterlist {
+  struct page	*page;
+  unsigned int	offset;
+  dma_addr_t	dma_address;
+  unsigned int	length;
+};
+```
+For each segment, the page pointer tells where the segment is to be found in memory, offset tells where the data begins within the page, and length is the length of the segment. Once the list has been filled in, the driver calls: 
+
+```
+int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents, enum dma_data_direction direction);
+```
+
+This operation, at a minimum, fills in the dma_address field of each scatterlist entry with an address which can be given to the peripheral. It might do more, though: physically contiguous pages may be coalesced into a single scatterlist entry, or the system's I/O memory management unit might be programmed to make parts (or all) of the list virtually contiguous from the device's point of view. All of this - including the exact form of struct scatterlist - is architecture dependent, but the scatter/gather interface is set up so that drivers need not worry about architecture details. 
