@@ -29,14 +29,18 @@ Teste das funções de conversão no módulo, imprimindo os resultados no log do
 Limitamos o tamanho da chave de entrada para 5 blocos (cada bloco possui 256 bits ou 32 bytes)
 ~~~
 
+### 08/10/2018
+~~~
+Funções read e write - Nesse momendo o parametro de entrada sera passado e convertido, sem nenhuma funcao de criptografia ou descriptografia, fazendo com que o modulo consiga ler e gravar em seu respectivo arquivo;
+Switch case com as opções de criptografia (c) descriptografia (d) e hash (h);
+Teste das funções read e write (escrita e leitura) com um programa em nível de usuário (read_write.c).
+~~~
 ### Tarefas a Realizar: Driver
 ~~~
-[Fazer] Funções read e write - Nesse momendo o parametro de entrada sera passado e convertido, sem nenhuma funcao de criptografia ou descriptografia, fazendo com que o modulo consiga ler e gravar em seu respectivo arquivo;
-[Fazer] Switch case com as opções de criptografia (c) descriptografia (d) e hash (h);
+[Fazer] Implementar as funcoes de criptografia, descriptografia e hash
 ~~~
 
 ### Tarefas a Realizar: Teste
 ~~~
-[Testar] Função write
 [Fazer] Fazer programa de teste em espaço de usuário e definir uma rotina de testes;
 ~~~
