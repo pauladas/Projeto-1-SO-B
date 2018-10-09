@@ -3,6 +3,16 @@
 
 #define SHA256_LENGTH (256 / 8) //Tamanho do hash final
 
+static char *input = "insira a string aqui";    //string para input, que será passada para o hash
+
+module_param(input, charp, 0000);   //Adiciona permissão à string
+MODULE_PARAM_DESC(input, "Entrada de dados para hash"); //Adiciona uma descrição à string
+
+/*
+ *  PARA PASSAR A STRING DE FORA DO MODULO PARA DENTRO, FAZER:
+ *  - insmod hashAPI.ko input="String que quer passar para esse módulo"
+ */
+
 static void show_hash_result(char *plaintext, char *hash_sha256) //Função para mostrar string antes hash e depois hash
 {
     int i;                           //Variável para mostrar o resultado do hash
