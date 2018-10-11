@@ -1,6 +1,5 @@
 #include <linux/module.h>
 #include <crypto/internal/hash.h>
-#include <hashAPI.h>
 
 #define SHA256_LENGTH (256 / 8) //Tamanho do hash final
 
