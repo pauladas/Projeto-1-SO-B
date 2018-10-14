@@ -51,11 +51,6 @@ int cryptosha256_init(void)
 
     return 0;
 }
-void cryptosha256_exit(void)
-{
-}
-module_init(cryptosha256_init);                     //Função de início será a cryptosha256_init
-module_exit(cryptosha256_exit);                     //Função de fim será a cryptosha256_init
 MODULE_AUTHOR("Paulo Figueiredo and Bruno Kitaka"); //Autores
 MODULE_DESCRIPTION("Teste de um hash com sha256");  //Descrição do módulo
 MODULE_LICENSE("GPL");                              //Licensa do módulo
