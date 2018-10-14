@@ -1,3 +1,4 @@
+Para dar Make:
 make CONFIG_STACK_VALIDATION=
 
 
