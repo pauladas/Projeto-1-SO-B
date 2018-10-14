@@ -8,21 +8,21 @@ static void show_hash_result(char *plaintext, char *hash_sha256) //Função para
     int i;                           //Variável para mostrar o resultado do hash
     char str[SHA256_LENGTH * 2 + 1]; //String resultado
 
-    pr_info("sha256 test for string: \"%s\"\n", plaintext); //String base
+    pr_info("String: \"%s\"\n", plaintext); //String base
 
     for (i = 0; i < SHA256_LENGTH; i++)
         sprintf(&str[i * 2], "%02x", (unsigned char)hash_sha256[i]); //Repassa a string em hash para a string resultado
 
-    str[i * 2] = 0;       //Final da string
-    pr_info("%s\n", str); //Mostra a string resultado
+    str[i * 2] = 0;               //Final da string
+    pr_info("SHA256: %s\n", str); //Mostra a string resultado
 }
-int cryptosha256_init(char *key)
+int cryptosha256(char *key)
 {
     //char *plaintext = "This is a test"; //String base para fazer o hash
     char *plaintext = key;
-    char hash_sha256[SHA256_LENGTH];    //String resultado do hash
-    struct crypto_shash *sha256;        //Informação/handle do hash (TFM)
-    struct shash_desc *shash;           //Struct com TFM e flags
+    char hash_sha256[SHA256_LENGTH]; //String resultado do hash
+    struct crypto_shash *sha256;     //Informação/handle do hash (TFM)
+    struct shash_desc *shash;        //Struct com TFM e flags
 
     sha256 = crypto_alloc_shash("sha256", 0, 0); //Seta o hash para o algoritmo SHA256
 
