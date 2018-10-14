@@ -24,7 +24,8 @@ struct tcrypt_result {
 
 /* tie all data structures together */
 struct skcipher_def {
-    struct scatterlist sg;
+    struct scatterlist sg_src;
+    struct scatterlist sg_dest;
     struct crypto_skcipher *tfm;
     struct skcipher_request *req;
     struct tcrypt_result result;
@@ -79,6 +80,7 @@ static int __init test_skcipher(void)
     struct crypto_skcipher *skcipher = NULL;
     struct skcipher_request *req = NULL;
     char *scratchpad = NULL; //variavel aonde ira a entrada
+    char *output = NULL;
     char *ivdata = NULL;
     unsigned char key[32]; //chave
     int ret = -EFAULT;
@@ -141,8 +143,8 @@ static int __init test_skcipher(void)
     sk.req = req;
 
     /* We encrypt one block */
-    sg_init_one(&sk.sg, scratchpad, 16);
-    skcipher_request_set_crypt(req, &sk.sg, &sk.sf, 16, ivdata);
+    sg_init_one(&sk.sg_src, scratchpad, 16);
+    skcipher_request_set_crypt(req, &sk.sg_src, &sk.sg_dest, 16, ivdata);
     init_completion(&sk.result.completion);
 
     /* encrypt data */
@@ -153,7 +155,9 @@ static int __init test_skcipher(void)
 
     pr_info("Encryption triggered successfully\n");
 
-    pr_info("skcipher encrypt returned with %d result %d\n", &sk, sk->result.err);
+    output = sg_virt(&sk.sg_dest);
+    
+    pr_info("Output: %s\n", output);
 
 
 out:
