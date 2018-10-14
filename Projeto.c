@@ -40,11 +40,11 @@ static void test_skcipher_cb(struct crypto_async_request *req, int error)
     result->err = error;
     complete(&result->completion);
     pr_info("Encryption finished successfully\n");
+    //pr_info("Output: %s", )
 }
 
 /* Perform cipher operation */
-static unsigned int test_skcipher_encdec(struct skcipher_def *sk,
-                     int enc)
+static unsigned int test_skcipher_encdec(struct skcipher_def *sk, int enc)
 {
     int rc = 0;
 
@@ -58,15 +58,13 @@ static unsigned int test_skcipher_encdec(struct skcipher_def *sk,
         break;
     case -EINPROGRESS:
     case -EBUSY:
-        rc = wait_for_completion_interruptible(
-            &sk->result.completion);
+        rc = wait_for_completion_interruptible(&sk->result.completion);
         if (!rc && !sk->result.err) {
             reinit_completion(&sk->result.completion);
             break;
         }
     default:
-        pr_info("skcipher encrypt returned with %d result %d\n",
-            rc, sk->result.err);
+        pr_info("skcipher encrypt returned with %d result %d\n", rc, sk->result.err);
         break;
     }
     init_completion(&sk->result.completion);
@@ -80,12 +78,14 @@ static int __init test_skcipher(void)
     struct skcipher_def sk;
     struct crypto_skcipher *skcipher = NULL;
     struct skcipher_request *req = NULL;
-    char *scratchpad = NULL;
+    char *scratchpad = NULL; //variavel aonde ira a entrada
     char *ivdata = NULL;
-    unsigned char key[32];
+    unsigned char key[32]; //chave
     int ret = -EFAULT;
+    static int crypto_i;
+    static char aux_string[16] = "1234567890abcdef";
 
-    skcipher = crypto_alloc_skcipher("cbc-aes-aesni", 0, 0);
+    skcipher = crypto_alloc_skcipher("ecb-aes-aesni", 0, 0); //seta algoritimo aes ebc
     if (IS_ERR(skcipher)) {
         pr_info("could not allocate skcipher handle\n");
         return PTR_ERR(skcipher);
@@ -98,9 +98,7 @@ static int __init test_skcipher(void)
         goto out;
     }
 
-    skcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
-                      test_skcipher_cb,
-                      &sk.result);
+    skcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG, test_skcipher_cb, &sk.result);
 
     /* AES 256 with random key */
     get_random_bytes(&key, 32);
@@ -124,11 +122,18 @@ static int __init test_skcipher(void)
 
     /* Input data will be random */
     scratchpad = kmalloc(16, GFP_KERNEL);
+    //aloca 16 bytes em espaco de kernel e coloca o ponteiro desse espaco em scratchpad
     if (!scratchpad) {
         pr_info("could not allocate scratchpad\n");
         goto out;
     }
-    get_random_bytes(scratchpad, 16);
+    //get_random_bytes(scratchpad, 16);
+    
+    
+    //input
+    for (crypto_i = 0; crypto_i < 16; crypto_i++) {
+    	*(scratchpad + crypto_i) = aux_string[crypto_i];
+    }
 
     pr_info("Input: %s", scratchpad);
 
@@ -137,16 +142,19 @@ static int __init test_skcipher(void)
 
     /* We encrypt one block */
     sg_init_one(&sk.sg, scratchpad, 16);
-    skcipher_request_set_crypt(req, &sk.sg, &sk.sg, 16, ivdata);
+    skcipher_request_set_crypt(req, &sk.sg, &sk.sf, 16, ivdata);
     init_completion(&sk.result.completion);
 
     /* encrypt data */
+    //passa sk como argumento e 1 se for encriptacao ou 0 se for decriptacao
     ret = test_skcipher_encdec(&sk, 1);
     if (ret)
         goto out;
 
     pr_info("Encryption triggered successfully\n");
-    //pr_info("Output: %s", sk.sg);
+
+    pr_info("skcipher encrypt returned with %d result %d\n", &sk, sk->result.err);
+
 
 out:
     if (skcipher)
