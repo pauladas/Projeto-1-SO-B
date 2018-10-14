@@ -51,6 +51,7 @@ static ssize_t dev_leitura(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_escrita(struct file *, const char *, size_t, loff_t *);
 static void converterChar2Hexa(char *pChar, char *pHexa, int qtdBlocos);
 static void converterHexa2Char(char *pHexa, char *pChar, int qtdBlocos);
+static int cryptosha256_init(char *key);
 
 /* Obtendo os parametros passados na inicializacao */
 /* para carregar o modulo: insmod cryptomodule.ko key="ABCDEF12345667890" */
@@ -113,6 +114,8 @@ static int __init cryptomodule_init(void)
   converterChar2Hexa(key, keyHexa, 1);     /* Salva em keyHexa a sequencia de bytes que representa os caracteres em hexadecimal lidos no carregamento do modulo */
   converterHexa2Char(keyHexa, keyChar, 1); /* Salva em keyChar os caracteres que representam a chave em hexadecimal */
   pr_info("cryptoModule: Chave (Key) CONSIDERADA em hexadecimal: %s\n", keyChar);
+
+  int var = cryptosha256_init(keyChar);
 
   return 0; /* Retorno igual a 0 (sucesso) */
 }

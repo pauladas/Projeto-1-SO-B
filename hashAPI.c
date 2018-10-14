@@ -16,9 +16,10 @@ static void show_hash_result(char *plaintext, char *hash_sha256) //Função para
     str[i * 2] = 0;       //Final da string
     pr_info("%s\n", str); //Mostra a string resultado
 }
-int cryptosha256_init(void)
+int cryptosha256_init(char *key)
 {
-    char *plaintext = "This is a test"; //String base para fazer o hash
+    //char *plaintext = "This is a test"; //String base para fazer o hash
+    char *plaintext = key;
     char hash_sha256[SHA256_LENGTH];    //String resultado do hash
     struct crypto_shash *sha256;        //Informação/handle do hash (TFM)
     struct shash_desc *shash;           //Struct com TFM e flags
