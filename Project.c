@@ -127,6 +127,7 @@ static int test_skcipher_encrypt(char * plaintext, char * password, struct skcip
 	}
 	
 	sprintf((char*)sk->scratchpad,"%s",plaintext);
+	pr_info("Input: %s\n", sk->scratchpad);
 	sg_init_one(&sk->sg, sk->scratchpad, CIPHER_BLOCK_SIZE);
 	skcipher_request_set_crypt(sk->req, &sk->sg, &sk->sg,
 	CIPHER_BLOCK_SIZE, sk->ivdata);
@@ -137,12 +138,11 @@ static int test_skcipher_encrypt(char * plaintext, char * password, struct skcip
 	if (ret)
 		goto out;
 	pr_info("Encryption request successful\n");
-	pr_info("Input: %s\n", sk->scratchpad);
-	pr_info("Output: %s\n", sk->ciphertext);
 
         //sk->ciphertext = sg_virt (&(sk->sg));
         sk->ciphertext = sg_virt(&(sk->sg));
 	pr_info("texto = %s \n", sk->ciphertext);
+	sk->ciphertext = NULL;
 out:
  	return ret;
 }
