@@ -3,7 +3,7 @@
 #include <linux/crypto.h>
 
 #define SYMMETRIC_KEY_LENGTH 32
-#define CIPHER_BLOCK_SIZE 16
+#define CIPHER_BLOCK_SIZE 32
 
 struct tcrypt_result {
 	struct completion completion;
@@ -18,6 +18,7 @@ struct skcipher_def {
 	char * scratchpad;
 	char * ciphertext;
 	char * ivdata;
+	unsigned int encrypt;
 };
 
 static struct skcipher_def sk;
@@ -74,6 +75,7 @@ static void test_skcipher_callback(struct crypto_async_request *req, int error) 
 static int test_skcipher_encrypt(char * plaintext, char * password, struct skcipher_def * sk) {
 	
 	int ret = -EFAULT;
+	int i = 0;
 	unsigned char key[SYMMETRIC_KEY_LENGTH];
 	if (!sk->tfm) {
 		sk->tfm = crypto_alloc_skcipher("ecb-aes-aesni", 0, 0);
@@ -105,7 +107,6 @@ static int test_skcipher_encrypt(char * plaintext, char * password, struct skcip
 	}
 	
 	pr_info("Symmetric key: %s\n", key);
-	pr_info("Plaintext: %s\n", plaintext);
 	
 	if (!sk->ivdata) {
 		/* see https://en.wikipedia.org/wiki/Initialization_vector */
@@ -134,15 +135,25 @@ static int test_skcipher_encrypt(char * plaintext, char * password, struct skcip
 	init_completion(&sk->result.completion);
 	/* encrypt data */
 	ret = crypto_skcipher_encrypt(sk->req);
+	
+	if (sk->encrypt) {
+		ret = crypto_skcipher_encrypt(sk->req);
+	} else {
+		ret = crypto_skcipher_decrypt(sk->req);
+	}
+		
 	ret = test_skcipher_result(sk, ret);
 	if (ret)
 		goto out;
-	pr_info("Encryption request successful\n");
-
-        //sk->ciphertext = sg_virt (&(sk->sg));
+		
+	ret = crypto_skcipher_decrypt(sk->req);
+	
         sk->ciphertext = sg_virt(&(sk->sg));
 	pr_info("texto = %s \n", sk->ciphertext);
-	sk->ciphertext = NULL;
+	pr_info("texto hexa =");
+	for (i = 0; *(sk->ciphertext + i); i++)	pr_info("%c", *(sk->ciphertext + i));
+	pr_info("\n");
+	pr_info("Encryption request successful\n");
 out:
  	return ret;
 }
@@ -151,12 +162,45 @@ out:
 int cryptoapi_init(void) {
 	/* The world's favourite password */
 	char * password = "password123"; //chave de encriptacao
+	char * test_string = NULL;
 	sk.tfm = NULL;
 	sk.req = NULL;
 	sk.scratchpad = NULL;
 	sk.ciphertext = NULL;
 	sk.ivdata = NULL;
+	sk.encrypt = 1;
 	test_skcipher_encrypt("Testing", password, &sk);
+	
+	pr_info("Primeira incriptacao concluida\n");
+	
+	if (!test_string) {
+		/* The text to be decrypted */
+		test_string = kmalloc(32, GFP_KERNEL);
+		if (!test_string) {
+			pr_info("could not allocate test_string\n");
+			test_skcipher_finish(&sk);
+			return 0;
+		}
+	}
+	
+	sprintf(test_string,"%s",sk.ciphertext);
+	
+	pr_info("string copiada: %s\n", test_string);
+	
+	sk.ciphertext = NULL;
+	
+	test_skcipher_finish(&sk);
+	
+	sk.tfm = NULL;
+	sk.req = NULL;
+	sk.scratchpad = NULL;
+	sk.ciphertext = NULL;
+	sk.ivdata = NULL;
+	sk.encrypt = 0;
+	test_skcipher_encrypt(test_string, password, &sk);
+	
+	sk.ciphertext = NULL;
+	
 	return 0;
 }
 
