@@ -10,6 +10,8 @@
 #include <linux/module.h>         /* Biblioteca para carregar o modulo de kernel no sistema */
 #include <linux/device.h>         /* Biblioteca para suportar o modulo de dispositivo */
 #include <linux/kernel.h>         /* Contem as funcoes macros e tipos de estruturas do kernel */
+#include <crypto/internal/skcipher.h> /* biblioteca para encriptar e decriptar*/
+#include <linux/crypto.h>
 #include <linux/moduleparam.h>    /* Contem a funcao para receber parametros durante a inicializacao do modulo */
 #include <linux/stat.h>
 #include <crypto/internal/hash.h> /* Utilizada para a funcao de HASH */
@@ -20,6 +22,7 @@
 #define CLASS_NAME "cryptomodule" /* Definicao da classe do dispositivo */
 #define KEY_SIZE 256
 #define SHA256_LENGTH KEY_SIZE / 8
+#define CIPHER_BLOCK_SIZE 16 //tamanho do bloco para encriptacao
 
 MODULE_LICENSE("GPL");                                               /* Tipo da licenca */
 MODULE_AUTHOR("Projeto 1");                                          /* Autor */
@@ -29,6 +32,23 @@ MODULE_VERSION("1.0");                                               /* Varsao *
 /* OBS: os prints estarao em /var/log/kernel.log ou dmesg
  * para imprimir tail kern.log
 */
+
+//estruturas para funcao de encriptar
+struct tcrypt_result {
+	struct completion completion;
+	int err;
+};
+
+struct skcipher_def {
+	struct scatterlist sg;
+	struct crypto_skcipher * tfm;
+	struct skcipher_request * req;
+	struct tcrypt_result result;
+	char * scratchpad;
+	char * ciphertext;
+	char * ivdata;
+	unsigned int encrypt;
+};
 
 /* Todas as variaveis globais devem ser ESTATICAS para evitar conflitos com as demais existentes na memoria do Kernel */
 static int qtdBlocos;
@@ -45,6 +65,8 @@ static char mensagemCharOutput[(KEY_SIZE / 4) * 5 + 1]; /* Armazena o resultado 
 static int numUtil = 0;                                 /* Contador do numero de vezes que o arquivo de dispositivo foi aberto */
 static struct device *cryptomoduleDevice = NULL;        /* Ponteiro para a struct do driver de dispositivo */
 static struct class *cryptomoduleClass = NULL;          /* Ponteiro para a struct da classe representando o driver de dispositivo */
+static struct skcipher_def sk; //estrutura para funcao de encriptar
+
 
 /* Prototipos das funcoes */
 static int      dev_abrir(struct inode *, struct file *);
@@ -54,6 +76,10 @@ static ssize_t  dev_escrita(struct file *, const char *, size_t, loff_t *);
 static void     converterChar2Hexa(char *pChar, char *pHexa, int qtdBlocos);
 static void     converterHexa2Char(char *pHexa, char *pChar, int qtdBlocos);
 static int      cryptosha256(char *pData, int *pResultado, int tamanhoData);
+static void 	test_skcipher_finish(struct skcipher_def * sk);
+static int 	test_skcipher_result(struct skcipher_def * sk, int rc);
+static void 	test_skcipher_callback(struct crypto_async_request *req, int error);
+static int 	test_skcipher_encrypt(char * plaintext, char * password, struct skcipher_def * sk);
 
 /* Obtendo os parametros passados na inicializacao */
 /* para carregar o modulo: insmod cryptomodule.ko key="ABCDEF12345667890" */
@@ -110,6 +136,8 @@ static int __init cryptomodule_init(void)
   }
   /* Finalmente o dispositivo foi iniciado */
   pr_info("cryptoModule: Dispositivo criado com sucesso\n");
+
+  
 
   pr_info("cryptoModule: Chave (Key) BRUTA recebida: %s\n", key);
   converterChar2Hexa(key, keyHexa, 1);     /* Salva em keyHexa a sequencia de bytes que representa os caracteres em hexadecimal lidos no carregamento do modulo */
@@ -218,10 +246,32 @@ static ssize_t dev_escrita(struct file *filep, const char *buffer, size_t len, l
   {
   case 'c': /* Aqui eh o codigo responsavel por Cifrar mensagemHexaInput e salvar os dados em mensagemHexaOutput */
     printk("cryptoModule: Cifrar\n");
+    //Inicializacao da funcao de encryptar
+    sk.tfm = NULL;
+    sk.req = NULL;
+    sk.scratchpad = NULL;
+    sk.ciphertext = NULL;
+    sk.ivdata = NULL;
+    sk.encrypt = 1; //operacao: 1 para encriptar e 0 para decriptar
+    //Inicializacao da funcao de encryptar
+    test_skcipher_encrypt(mensagemHexaInput, keyHexa, &sk);//chamada de funcao (string para encriptar, chave, estrutura para encriptar)
+    //funcao para retirar resultado do scatterlist
+    test_skcipher_finish(&sk);
     break;
 
   case 'd': /* Aqui eh o codigo responsavel por Decifrar mensagemHexaInput e salvar o resultado em mensagemHexaOutput */
     printk("cryptoModule: Decifrar\n");
+    //Inicializacao da funcao de decryptar
+    sk.tfm = NULL;
+    sk.req = NULL;
+    sk.scratchpad = NULL;
+    sk.ciphertext = NULL;
+    sk.ivdata = NULL;
+    sk.encrypt = 0; //operacao: 1 para encriptar e 0 para decriptar
+    //Inicializacao da funcao de encryptar
+    test_skcipher_encrypt(mensagemHexaInput, keyHexa, &sk);//chamada de funcao (string para encriptar, chave, estrutura para encriptar)
+    //funcao para retirar resultado do scatterlist
+    test_skcipher_finish(&sk);
     break;
 
   case 'h': /* Aqui eh o codigo responsavel por Calcular o hash da mensagemHexaInput e salvar em mensagemHexaOutput*/
@@ -366,6 +416,138 @@ static int cryptosha256(char *pData, char *pResultado, int tamanhoData)
     memcpy(pResultado,hash_sha256,32);        /* Copia o resultado do hash para mensagemHexaOutput */
 
     return 0;
+}
+
+static void test_skcipher_finish(struct skcipher_def * sk) {
+
+	if (sk->tfm)
+		crypto_free_skcipher(sk->tfm);
+	if (sk->req)
+		skcipher_request_free(sk->req);
+	if (sk->ivdata)
+		kfree(sk->ivdata);
+	if (sk->scratchpad)
+		kfree(sk->scratchpad);
+	if (sk->ciphertext)
+		kfree(sk->ciphertext);		
+}
+
+static int test_skcipher_result(struct skcipher_def * sk, int rc) {
+	
+	switch (rc) {
+		case 0:
+			break;
+	case -EINPROGRESS:
+	case -EBUSY:
+		rc = wait_for_completion_interruptible(
+		&sk->result.completion);
+		if (!rc && !sk->result.err) {
+			reinit_completion(&sk->result.completion);
+			break;
+		}
+	default:
+		pr_info("skcipher encrypt returned with %d result %d\n",
+		rc, sk->result.err);
+		break;
+	}
+
+	init_completion(&sk->result.completion);
+	return rc;	
+}
+
+
+static void test_skcipher_callback(struct crypto_async_request *req, int error) {
+	
+	struct tcrypt_result *result = req->data;
+	if (error == -EINPROGRESS)
+		return;
+	result->err = error;
+	complete(&result->completion);
+	pr_info("Encryption finished successfully\n");
+}
+
+
+static int test_skcipher_encrypt(char * plaintext, char * password, struct skcipher_def * sk) {
+	
+	int ret = -EFAULT;
+	unsigned char key[KEY_SIZE];
+	if (!sk->tfm) {
+		sk->tfm = crypto_alloc_skcipher("ecb-aes-aesni", 0, 0);
+		if (IS_ERR(sk->tfm)) {
+			pr_info("could not allocate skcipher handle\n");
+			return PTR_ERR(sk->tfm);
+		}
+	}
+	if (!sk->req) {
+		sk->req = skcipher_request_alloc(sk->tfm, GFP_KERNEL);
+		if (!sk->req) {
+			pr_info("could not allocate skcipher request\n");
+			ret = -ENOMEM;
+			goto out;
+		}
+	}
+	
+	skcipher_request_set_callback(sk->req, CRYPTO_TFM_REQ_MAY_BACKLOG,test_skcipher_callback,&sk->result);
+	/* clear the key */
+	memset((void*)key,'\0',KEY_SIZE);
+	/* Use the world's favourite password */
+	sprintf((char*)key,"%s",password);
+	
+	/* AES 256 with given symmetric key */
+	if (crypto_skcipher_setkey(sk->tfm, key, KEY_SIZE)) {
+		pr_info("key could not be set\n");
+		ret = -EAGAIN;
+		goto out;
+	}
+	
+	pr_info("Symmetric key: %s\n", key);
+	pr_info("Plaintext: %s\n", plaintext);
+	
+	if (!sk->ivdata) {
+		/* see https://en.wikipedia.org/wiki/Initialization_vector */
+		sk->ivdata = kmalloc(CIPHER_BLOCK_SIZE, GFP_KERNEL);
+		if (!sk->ivdata) {
+			pr_info("could not allocate ivdata\n");
+			goto out;
+		}
+		get_random_bytes(sk->ivdata, CIPHER_BLOCK_SIZE);
+	}
+	
+	if (!sk->scratchpad) {
+		/* The text to be encrypted */
+		sk->scratchpad = kmalloc(CIPHER_BLOCK_SIZE, GFP_KERNEL);
+		if (!sk->scratchpad) {
+			pr_info("could not allocate scratchpad\n");
+			goto out;
+		}
+	}
+	
+	sprintf((char*)sk->scratchpad,"%s",plaintext);
+	pr_info("Input: %s\n", sk->scratchpad);
+	sg_init_one(&sk->sg, sk->scratchpad, CIPHER_BLOCK_SIZE);
+	skcipher_request_set_crypt(sk->req, &sk->sg, &sk->sg,
+	CIPHER_BLOCK_SIZE, sk->ivdata);
+	init_completion(&sk->result.completion);
+	/* encrypt data */
+	
+	if (sk->encrypt) {
+		ret = crypto_skcipher_encrypt(sk->req);
+	} else {
+		ret = crypto_skcipher_decrypt(sk->req);
+	}
+	
+	ret = test_skcipher_result(sk, ret);
+	
+	if (ret)
+		goto out;
+	pr_info("Encryption request successful\n");
+
+        //sk->ciphertext = sg_virt (&(sk->sg));
+        sk->ciphertext = sg_virt(&(sk->sg));
+	pr_info("texto = %s \n", sk->ciphertext);
+	sk->ciphertext = NULL;
+out:
+ 	return ret;
 }
 
 /* Inicializacao das funcoes de init e exit, ja que ambas foram criadas com macros */
