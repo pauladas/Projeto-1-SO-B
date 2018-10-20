@@ -12,6 +12,7 @@
  #include <linux/kernel.h>              /* Contem as funcoes macros e tipos de estruturas do kernel */
  #include <crypto/internal/skcipher.h>  /* Biblioteca para encriptar e decriptar */
  #include <linux/crypto.h>
+ #include <linux/vmalloc.h>
  #include <linux/moduleparam.h>         /* Contem a funcao para receber parametros durante a inicializacao do modulo */
  #include <linux/stat.h>
  #include <crypto/internal/hash.h>      /* Utilizada para a funcao de HASH */
@@ -45,7 +46,7 @@ static char keyHexa[(KEY_SIZE / 8) + 1];                      /* Armazena a chav
 static char keyChar[(KEY_SIZE / 4) + 1];                  /* Representacao em caracteres da chave considerada em hexadecimal */
 static char mensagemHexaInput[(KEY_SIZE / 8) * 5 + 1];  /* Armazena a mensagem lida do arquivo do modulo em forma hexadecimal para ser utilizado na criptografia, descriptografia ou hash obs: vezes 5 pois definimos que iremos realizar as operacoes com no maximo 5 blocos (160 bytes)*/
 static char mensagemHexaOutput[(KEY_SIZE / 8) * 5 + 1]; /* Armazena o resultado da criptogragia, descriptografia ou hash em hexadecimal */
-static char mensagemCharInput[(KEY_SIZE / 4) * 5 + 1];  /* Armazena a mensagem em CARACTERES lida do arquivo do modulo. Obs: o tamanho eh "ilimitado", mas iremos considerar os primeiros 64*5(blocos) caracteres*/
+static char mensagemCharInput[(KEY_SIZE / 4) * 5 + 3];  /* Armazena a mensagem em CARACTERES lida do arquivo do modulo. Obs: o tamanho eh "ilimitado", mas iremos considerar os primeiros 64*5(blocos) caracteres*/
 static char mensagemCharOutput[(KEY_SIZE / 4) * 5 + 1]; /* Armazena o resultado da criptogragia, descriptografia ou hash em CARACTERES, para imprimir no arquivo do modulo */
 static int numUtil = 0;                                 /* Contador do numero de vezes que o arquivo de dispositivo foi aberto */
 static struct device *cryptomoduleDevice = NULL;        /* Ponteiro para a struct do driver de dispositivo */
@@ -215,6 +216,7 @@ static ssize_t dev_escrita(struct file *filep, const char *buffer, size_t len, l
   /* Quebrando a mensagemCharInput em blocos de 32 bytes */
   /* Convertendo cada bloco de 64 caracteres para um de 32 bytes hexadecimal mensagemCharInput (64B) -> mensagemHexaInput(32B) */
   qtdBlocos = size_of_message / 64;
+  if(len > 322) len = 322;
   copy_from_user(mensagemCharInput,buffer,len);
   mensagemCharInput[len] = '\0';
   size_of_message = len-2;           // Armazena o tamanho da chave recebida
@@ -320,7 +322,7 @@ static int cryptosha256(char *pData, char *pResultado)
     struct shash_desc *shash;        /* Struct com o objeto de transformacao e flags do hash */
     int qtdBytes = (size_of_message % 2 == 0) ? (qtdBytes=size_of_message) : (qtdBytes=size_of_message+1);
 
-    plaintext = (char *)kmalloc(size_of_message/2,GFP_KERNEL);
+    plaintext = (char *)vmalloc(size_of_message/2);
     strcpy(plaintext,pData);
 
     printk("plaintext:");
@@ -333,7 +335,7 @@ static int cryptosha256(char *pData, char *pResultado)
     if (IS_ERR(sha256)) /* Caso a indicacao acima de erro retorna -1 */
         return -1;
 
-    shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(sha256), GFP_KERNEL); /* Aloca espaco para a struct que contem o TFM (objeto de transformacao) e flags do hash */
+    shash = vmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(sha256)); /* Aloca espaco para a struct que contem o TFM (objeto de transformacao) e flags do hash */
 
     if (!shash) /* Caso nao exista memoria disponivel ou nao consegui alocar espaco retorna um erro */
         return -ENOMEM;
@@ -350,8 +352,8 @@ static int cryptosha256(char *pData, char *pResultado)
     if (crypto_shash_final(shash, hash_sha256)) /* Termina o Hash */
         return -1;
 
-    kfree(shash);                             /* Desaloca a estrturura alocada dinamicamente para realizar o hash */
-    kfree(plaintext);
+    vfree(shash);                             /* Desaloca a estrturura alocada dinamicamente para realizar o hash */
+    vfree(plaintext);
     crypto_free_shash(sha256);                /* Libera o objeto de hash sha256 */
     memcpy(pResultado,hash_sha256,32);        /* Copia o resultado do hash para mensagemHexaOutput */
 
