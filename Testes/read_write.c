@@ -20,7 +20,9 @@ static char mensagemRecebida[BUFFER_LENGTH];    /* Contem a mensagem recebida do
 int main()
 {
    int retorno, arquivo, opcao;
-   char mensagemEnviada[BUFFER_LENGTH];
+   char mensagemEnviada[161];
+   char mensagemHexa[323];
+   int i,j;
 
    clear();
    printf("Teste cryptoModule Projeto 1\n");
@@ -33,11 +35,25 @@ int main()
 
   do
   {
-     printf("Digite a string de entrada que deseja escrever no arquivo do modulo (Estrutura: c|d|h ABCDEFG0123456789...)\n");
+     printf("Digite a string de entrada que deseja escrever no arquivo do modulo (Estrutura: c|d|h string)\n");
      scanf("%[^\n]%*c", mensagemEnviada);
-     printf("Escrevendo no dispositivo a mensagem [%s].\n", mensagemEnviada);
+     memset(mensagemHexa,0,323);
+     /* O programa em usuario converte a string para hexa */
+     mensagemHexa[0] = mensagemEnviada[0]; /* Copia a operacao */
+     mensagemHexa[1] = mensagemEnviada[1]; /* Copia o espaco apos a operacao */
 
-     retorno = write(arquivo, mensagemEnviada, strlen(mensagemEnviada));  /* Enviando a string para o modulo criptografico */
+     /* Converte os dados em caracteres para hexa */
+     for (i = 2,j=2; i < strlen(mensagemEnviada); i++, j+=2)
+       sprintf(&mensagemHexa[j], "%02hhx", (unsigned char)mensagemEnviada[i]);
+     mensagemHexa[j]='\0';
+
+     /* Imprime os caracteres para debug da mesma forma em que foram convertidos */
+     printf("Escrevendo no dispositivo a mensagem: ");
+     for (i = 2; i < strlen(mensagemEnviada); i++)
+      printf("%02hhx ", (unsigned char)mensagemEnviada[i]);
+     printf("\n");
+
+     retorno = write(arquivo, mensagemHexa, strlen(mensagemHexa));  /* Enviando a string para o modulo criptografico */
      if (retorno < 0)
      {
         perror("Falha ao escrever a mensagem no dispositivo crypto");
