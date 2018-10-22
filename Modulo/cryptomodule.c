@@ -142,8 +142,14 @@ static int __init cryptomodule_init(void)
   size_of_key = strlen(key);
   if (size_of_key > 64) size_of_key=64;
   size_of_message = size_of_key;
+
   pr_info("cryptoModule: Chave (Key) BRUTA recebida: %s\n", key);
   converterChar2Hexa(key, keyHexa);     /* Salva em keyHexa a sequencia de bytes que representa os caracteres em hexadecimal lidos no carregamento do modulo */
+	if(size_of_key % 2 != 0)
+	{
+		size_of_key += 1;
+		size_of_message = size_of_key;
+  }
   converterHexa2Char(keyHexa, keyChar); /* Salva em keyChar os caracteres que representam a chave em hexadecimal */
   pr_info("cryptoModule: Chave (Key) CONSIDERADA em hexadecimal: %s\n", keyChar);
   size_of_key /= 2;
